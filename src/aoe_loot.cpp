@@ -50,50 +50,52 @@ bool AOELootServer::CanPacketReceive(WorldSession* session, WorldPacket& packet)
         {
             Creature* creature = *itr;
 
-            // Prevent infiny add items
+            // Prevent infinity add items
             if (creature->GetGUID() == guid)
                 continue;
 
-            // Prevent steal loot
+            // Prevent loot stealing
             if (!player->GetMap()->Instanceable())
                 if (!player->isAllowedToLoot(creature))
                     continue;
 
-            // Max 15 items per creature
-            if (mainloot->items.size() + mainloot->quest_items.size() > 15)
-                break;
-
             Loot* loot = &(*itr)->loot;
 
-            // FILL QITEMS
+            // Transfer quest items
             if (!loot->quest_items.empty())
             {
                 mainloot->items.insert(mainloot->items.end(), loot->quest_items.begin(), loot->quest_items.end());
                 loot->quest_items.clear();
             }
 
-            // FILL GOLD
+            // Transfer gold
             if (loot->gold != 0)
             {
                 mainloot->gold += loot->gold;
                 loot->gold = 0;
             }
 
-            // FILL ITEMS
+            // Transfer other items
             if (!loot->items.empty())
             {
                 mainloot->items.insert(mainloot->items.end(), loot->items.begin(), loot->items.end());
                 loot->items.clear();
             }
 
-            // Set flag for skinning
+            // Ensure creature is marked as fully looted
             if (loot->items.empty() && loot->quest_items.empty())
             {
                 creature->AllLootRemovedFromCorpse();
                 creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
             }
+            else
+            {
+                // Forcefully clear the lootable flag if no items remain
+                creature->RemoveDynamicFlag(UNIT_DYNFLAG_LOOTABLE);
+            }
         }
 
+        // Send the loot window for the primary creature
         player->SendLoot(guid, LOOT_CORPSE);
         return false;
     }
